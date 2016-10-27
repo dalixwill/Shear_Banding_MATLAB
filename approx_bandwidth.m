@@ -85,7 +85,7 @@ function [band_extents,band_width] = approx_bandwidth(dudt,Ly,varargin)
         best_fit = fit_stats;
         best_fit(bad_ind,:) = [];
         [~,min_row] = min(best_fit(:,3));
-        opt_shift = int8(best_fit(min_row,1));
+        opt_shift = uint16(best_fit(min_row,1));
         
 %         disp(best_fit(min_row,:));
         best_stats(i-1,:) = [i, best_fit(min_row,:)];                              % save best fit data to matrix.
@@ -124,9 +124,9 @@ function [band_extents,band_width] = approx_bandwidth(dudt,Ly,varargin)
         band_extents(band_extents>length(u))-length(u);                     % guarantee extents are within original frame
         
     % Case band extents full simulation
-    disp(slope_AB)
-    disp(slope_BC)
-    disp(slope_BC-slope_AB)
+%     disp(slope_AB)
+%     disp(slope_BC)
+%     disp(slope_BC-slope_AB)
         if abs(slope_AB-slope_BC) <= 5e-3
             band_extents(:,i-1) = [1;numel(u)];
             band_width(i-1) = Ly;

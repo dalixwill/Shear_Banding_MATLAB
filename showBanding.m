@@ -39,12 +39,19 @@ function showBanding(SrcDirs,varargin)
     warning('off','all');                                                   % Suppress all warnings
     format long
     
+    fontsize = 34;
+    linewidth = 4;
+    markersize = 34;
+    outconfigs = [1 3 5];
+    
+    % new output based on strain
+    
     % Defaults
     if nargin == 0                                                          % Set current working directory as location of
         SrcDirs = {'.'};                                                    % source files should no directory be given.
     end
     nBins = 50;
-    n_average_points = 5;
+    n_average_points = 35;
     % Defaults, Switches
     system = 'Lancon';
     min_strain_rate_res = 'no';                                             % Switch governs minimum resolvable shear rate
@@ -54,158 +61,29 @@ function showBanding(SrcDirs,varargin)
     flip_data = 'Yes';
     average_along = 'potentialenergy';
     verbose_fit = 'off';
-    cmap = [222,29,42; 164,131,196; 0,148,189]*(1/255);                     % Set global color map for each quench rate
- 
-    % Parse optional input parameters
-    opvarcount = 1;
-    while opvarcount < numel(varargin)
-       switch varargin{opvarcount}
-           case {'nBins','Nbins','N','numBins','bins','BINS'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               nBins = varargin{opvarcount};
-           case {'n_average_points','span','Span','averagingRange'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               n_average_points = varargin{opvarcount};
-           case {'system','System','Units','units'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               system = varargin{opvarcount};
-           case {'minstrainrate','minStrainRate','MinStrainRate'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               min_strain_rate_res = varargin{opvarcount};
-           case {'showSmoothPlots','smoothPlots','filterData','smoothData'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               show_filtered_data_figs = varargin{opvarcount};
-           case {'showDataFitting','ShowDataFit','ShowDataFitting'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               show_data_fit = varargin{opvarcount};
-           case {'flipdata','FlipData','flipData'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               flip_data = varargin{opvarcount};
-           case {'averagealong','AverageAlong','averageAlong'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               average_along = varargin{opvarcount};
-           case {'verbosefit','VerboseFit','verboseFit'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               switch lower(varargin{opvarcount});
-                   case {'yes','on','true'}
-                       verbose_fit = 'true';
-                   otherwise
-                       verbose_fit = 'false';
-               end
-           case {'periodicbounds','PeriodicBounds','periodicBounds'}
-               assert(opvarcount+1<=numel(varargin))
-               opvarcount = opvarcount + 1;
-               switch lower(varargin{opvarcount})
-                   case {'yes','on','true'}
-                       periodic_bounds = 'true';
-                   otherwise
-                       periodic_bounds = 'false';
-               end
-           otherwise
-               if ~ischar(varargin{opvarcount})
-                   errtxt1 = [' ',num2str(varargin{opvarcount})];
-                   error_l1 = strcat('Error!:',errtxt1);
-               else
-                   error_l1 = strcat('Error!:',varargin{opvarcount});
-               end
-               errorstatement = ' is an unrecognized input parameter.';
-               error(strcat(error_l1,errorstatement));
-       end
-       opvarcount = opvarcount + 1;
-    end
+    % Set global color, marker maps for each quench rate
+    cmap = [222,29,42; 164,131,196; 0,148,189]*(1/255);                     
+    markermap = ['o','^','s'];
+    type = 1;
     
-    
-    
+    % Parse Optional Inputs
+    parseOptionalInputParameters
 
-    [~,nDirs] = size(SrcDirs);                                              % Determine total number of directories
+    % Determine Number of Input Directories
+    [~,nDirs] = size(SrcDirs);                                              
 
-    % Set the default values for option arguments
-    if isempty(n_average_points)                                            % Set default number of log points to consider
-        n_average_points = 25;                                              % when averaging band-normalized strain rate.
+    % Set Default Log-Plot Averaging Value
+    if isempty(n_average_points)                                           
+        n_average_points = 25;                                              
     end                                                 
 
-    % Allow user to specify units based on material system
-    switch system
-        case {'Lancon','lancon'}
-            distanceunits = '\sigma';
-            energyunits = '\epsilon';
-            strainrateunits = '\tau^{-1}';
-            type = 2; % Select Solute Atoms
-            tstep = 0.005; % Default Timestep for LJ
-            qrates = {'\boldmath$QR = 1e4 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 5e4 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 1e5 \hspace{.5mm} t_0$'};
-            periodic_bounds = 'true';
-            
-        case {'2DLJ','2Dlj','2dlj'}
-            distanceunits = '\sigma';
-            energyunits = '\epsilon';
-            strainrateunits = '\tau^{-1}';
-            type = 2; % Select Solute Atoms
-            tstep = 0.005; % Default Timestep for LJ
-            qrates = {'\boldmath$QR = 1e5 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 5e5 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 1e6 \hspace{.5mm} t_0$'}; 
-        case {'Alix_CuZr'}
-            distanceunits = char(197);
-            energyunits = 'eV';
-            strainrateunits = 'ps^{-1}';
-            qrates = {'\boldmath$QR = 1e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e10 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e09 \hspace{.5mm} K/s$'};
-            type = 2; % Si
-            tstep = 0.002;
-            periodic_bounds = 'true';
-        case {'Si','aSi','Silicon'}
-            distanceunits = char(197);
-            energyunits = 'eV';
-            strainrateunits = 'ps^{-1}';
-            qrates = {'\boldmath$QR = 5e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 5e10 \hspace{.5mm} K/s$'};
-            type = 1; % Si
-            tstep = 0.002;
-            periodic_bounds = 'true';
-       case {'3DLJ','3Dlj','3dlj'}
-            distanceunits = '\sigma';
-            energyunits = '\epsilon';
-            strainrateunits = '\tau^{-1}';
-            type = 1; % Select Solute Atoms
-            tstep = 0.005; % Default Timestep for LJ
-            qrates = {'\boldmath$QR = 1e4 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 5e4 \hspace{.5mm} t_0$',...
-                        '\boldmath$QR = 1e5 \hspace{.5mm} t_0$'};
-        case {'CuZr','CUZR'}
-            distanceunits = char(197);
-            energyunits = 'eV';
-            strainrateunits = 'ps^{-1}';
-            type = 2; % Select only Cu Atoms
-            qrates = {'\boldmath$QR = 5e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 5e10 \hspace{.5mm} K/s$'};
-            tstep = 0.002;
-        case {'CuZrHybrid','Hybrid'}
-            distanceunits = char(197);
-            energyunits = 'eV';
-            strainrateunits = 'ps^{-1}';
-            type = 2; % Select only Cu Atoms
-            qrates = {'\boldmath$QR = 1e12 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e11 \hspace{.5mm} K/s$',...
-                        '\boldmath$QR = 1e10 \hspace{.5mm} K/s$'};
-            tstep = 0.002;
-    end
-
+    % Set System Units, Default Text Values
+    setSystemUnitsDefaults
+    
     % Initialize data cells
     PEbin = cell(nDirs,1);                                                  % bin-averaged potential energies
+    normVelbin = cell(nDirs,1); 
+    
     bandsize = cell(nDirs,1);                                               % shear band size, system units
     bandext = cell(nDirs,1);                                                % indicies of band extents
     pelog = cell(nDirs,1);                                                  % potential energy from log analysis
@@ -216,57 +94,113 @@ function showBanding(SrcDirs,varargin)
     sr_mean = cell(nDirs,1);                                                % average strain rate, log plot
     pe_dev = cell(nDirs,1);                                                 % potential energy standard deviation
     sr_dev = cell(nDirs,1);                                                 % strain rate standard deviation    
-    
+    dudtBin = cell(nDirs,1);
+    PEband = cell(nDirs,1);
+    SRband = cell(nDirs,1);
 
     %% Data acquisition, parsing of each directory
     for i = 1:nDirs      
+        
+        % Concatonate Text for Title Bar
+        longtitletext = [', Quench ',quench_type,' = ',...
+            quenchduration{i}, ' ', quenchrateunits, ...
+            ', Strain Rate = ',strainrate,' ',strainrateunits];
+        shorttitletext = [', Strain Rate = ',strainrate,' ',strainrateunits];
+%         
+%         function [longtitletext] = longtitletext(i)
+%             longtitletext = [', Quench ',quench_type,' = ',...
+%                 quenchduration{i}, ' ', timeunits, ...
+%                 ', Strain Rate = ',strainrate,' ',strainrateunits];
+%         end
         
         SrcDir = char(SrcDirs(i));
         [ntextfiles,~] = size(dir([SrcDir,'*.txt']));
         [ndatafiles,~] = size(dir([SrcDir,'*.data']));
         
         if ntextfiles > ndatafiles
-            [Type,Pos,Flgs,PE,nsteps,bounds] = sortData(SrcDir,'*.txt');
+            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = sortData(SrcDir,'*.txt');
         elseif ntextfiles < ndatafiles
-            [Type,Pos,Flgs,PE,nsteps,bounds] = sortData(SrcDir,'*.data');
+            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = sortData(SrcDir,'*.data');
         else
             errortext = 'Unable to determine file extension.';
             error(errortext);
         end
-
+        
+        % Adjust Coordinates for Periodic Boundaries
         switch periodic_bounds
             case {'true','True','Yes','yes'}
-                Pos = adjust_for_PBCs(Pos,Flgs,bounds);                     % Adjust atomic coordinates for periodic bounds
+                Pos = adjust_for_PBCs(Pos,Flgs,bounds);                     
         end
         
-        Bins = binData(Pos,nBins,Flgs,bounds);                              % Sort atoms in bins according to position        
-        cType = (Type(:,:,:)==type);                                        % Select atoms of desired type       
-        PEbin{i} = averageBins(Bins,PE,cType);                              % Compute average PE of each bin
-        Ly = bounds(2,2,1) - bounds(2,1,1);                                 % Sim cell length in y-direction
-        hBin = Ly/nBins;                                                    % Height of each bin
-        dt = diff(nsteps,1,2)*tstep;                                        % elapsed time between configurations    
-        [d2udydt{i},ux_Bin{i}] = ...
-            computeShearStrainRate(Pos,hBin,dt,Bins,cType);                 % Strain rate, displacement for each configuration
-        save('uxbin.mat','ux_Bin')
+        % Bin Atoms According to Y-Position
+        Bins = binData(Pos,nBins,Flgs,bounds);
 
+        % Include only Particular Atom Type
+        cType = (Type(:,:,:)==type);
+        
+        % Calculate Per-Atom, Per-Bin Mean Square Velocity
+        vel_sqr = Vel.*Vel; 
+        
+        vel_sqr_norm = sum(vel_sqr,2);        
+        normVelbin{i} = averageBins(Bins,vel_sqr_norm,cType);
+
+        % Plot Mean Square Velocity Profile
+        plotMeanSquareVelocityProfile
+        
+        % Compute Bin-Averaged Potential Energy 
+        PEbin{i} = averageBins(Bins,PE,cType);
+        
+        % Calculate Simulation Length, Bin Height, Time Between Snapshots 
+        Ly = bounds(2,2,1) - bounds(2,1,1);                                 
+        hBin = Ly/nBins;                                                    
+        dt = diff(nsteps,1,2)*tstep; 
+        
+        % Initialize Cells for Potential Energy, Strain Rate Data
+        PEband{i} = zeros(ndatafiles,1);
+        PEjam{i} = zeros(ndatafiles,1);
+        SRband{i} = zeros(ndatafiles,1);
+        PEnorm{i} = zeros(size(PEbin{i}));
+        
+        % Compute Shear Strain Rate, Displacement
+        [d2udydt{i},ux_Bin{i},dudtBin{i}] = ...
+            computeShearStrainRate(Pos,hBin,dt,Bins,cType);                 
+        
+        % Approximate Minimum Resolvable Strain Rate
         switch min_strain_rate_res
             case {'yes','YES','Yes'}
-                SRres = log10(eps*hBin*dt(1));                              % Estimate minimum resolvable strain rate 
+                SRres = log10(eps*hBin*dt(1));                             
             case {'No','no','NO'}
                 SRres = -Inf;
         end
-%         [bandext{i},bandsize{i}] = approxBandExtents(ux_Bin{i},Ly);
+
+        % Approximate Band Extents, Size
         [bandext{i},bandsize{i}] = approx_bandwidth(ux_Bin{i},Ly,...
             'verbosefit',verbose_fit,'showDataFitting',show_data_fit);
-%         disp(bandext{i})
-%         disp(bandsize{i})
-%         pause
-%         [bandext{i},bandsize{i}] = findBandExtents(ux_Bin{i},Ly,...
-%             'showDataFitting',show_data_fit,...
-%             'flipdata',flip_data);           % Estimate band extents
-        [pelog{i},sdotlog{i}] = computeLogStrainRate(...
-            d2udydt{i},PEbin{i},bandext{i},SRres);                          % Compute log values, error
+             
+        % Sort band extents
+%         bandext{i} = sort(bandext{i});
         
+        % Approximate PE, Strain Rate Inside Shear Band
+        for config = 2:size(PEbin{i},3)
+            A = bandext{i}(1,config-1);
+            B = bandext{i}(2,config-1);
+
+            PE_1 = PEbin{i}(1,bandext{i}(1,config-1):bandext{i}(2,config-1),config);
+            PE_2 = [PEbin{i}(1,1:bandext{i}(1,config-1)-1,config) ...
+                PEbin{i}(1,bandext{i}(2,config-1)+1:end,config)];
+            PEband{i}(config-1) = max([mean(PE_1) mean(PE_2)]);
+            PEjam{i}(config-1) = min([mean(PE_1) mean(PE_2)]);
+            SR_1 = d2udydt{i}(1,bandext{i}(1,config-1):bandext{i}(2,config-1),config-1);
+            SR_2 = [d2udydt{i}(1,1:bandext{i}(1,config-1)-1,config-1) ...
+                d2udydt{i}(1,bandext{i}(2,config-1)+1:end,config-1)];
+            SRband{i}(config-1,:) = max([mean(SR_1) mean(SR_2)]);
+        end
+
+        % Compute log of PE, Strain Rate 
+        [pelog{i},sdotlog{i}] = ...
+            computeLogStrainRate(d2udydt{i},PEbin{i},bandext{i},SRres);                          
+
+        % Toggle Between Sorting Data by PE or SR for Log(SR) vs PE Plots
         switch average_along
             case {'strainrate','sr','SR','shearrate'}
                 [sr_mean{i},pe_mean{i},sr_dev{i},pe_dev{i}] = ...
@@ -280,237 +214,76 @@ function showBanding(SrcDirs,varargin)
     end
     
     %% Figures Subsection
-%     Points = [2,3,4,6,8];                                                   % Figures to include Points(i)x100 % strain
-    Points = [2,3,4,6];
-    legendtext = cell(size(Points));                                        % Set default cell size for legend text
     
-    %   Potential Energy & Strain Rate vs. y-Position
-    for i = 1:nDirs
-        figure
-        
-        f(1) = subplot(1,2,1);
-        hold on
-        for j = 1:length(Points)
-            plot(d2udydt{i}(:,:,Points(j)),linspace(0,Ly,nBins),...
-                'LineWidth',2)
-            legendtext{j} = [num2str(Points(j)-1) '00-'...
-                num2str(Points(j)) '00%'];
+    % Desired Simulation Snapshots to Plot (in units strain)
+    Points = [2,3,4,6,8];       
+    Points = [2 3 4 5 6];
+    Points = [2 4 6 8];
+    
+    if ndatafiles > 31
+        % Convert Points from strain values to actual snapshots
+        i_Points = ones(size(Points));
+        acc_strain = str2num(strainrate)*nsteps*tstep;
+        ntol = tstep*str2num(strainrate);
+        for n = 1:numel(Points)
+            i_Points(n) = find(acc_strain > Points(n) - ntol & ...
+                acc_strain < Points(n) + ntol);
         end
-        hold off
-        set(gca,'FontSize',14)
-        xlabeltext = ['Strain Rate (' strainrateunits ')'];
-        xlabel({'',xlabeltext},'FontSize',18)
-        axis tight
-        ylabeltext = ['y-Position (' distanceunits ')'];
-        ylabel({ylabeltext,''},'FontSize',18)
-        legend(legendtext)
-        
-        f(2) = subplot(1,2,2);
-        hold on
-        for j = 1:length(Points)
-            plot(PEbin{i}(:,:,Points(j)),linspace(0,Ly,nBins),...
-                'LineWidth',2)
-        end
-        PEshift = min(PEbin{i}(:,:,2)) - max(PEbin{i}(:,:,1));
-        set(f(2),'yticklabel',[]);
-        plot(PEbin{i}(:,:,1)+PEshift,linspace(0,Ly,nBins),...
-            'k--','LineWidth',2)
-        hold off
-        set(gca,'FontSize',14)        
-        xlabeltext = ['Potential Energy (' energyunits ')'];
-        xlabel({'',xlabeltext},'FontSize',18)
-        axis tight
+    else
+       i_Points = Points; 
     end
-
-    %   Log of Band-Normalized Strain Rate vs. Potential Energy 
-    figure
-    hold on
-    for i = 1:nDirs
-        plot(pelog{i},sdotlog{i},'color',cmap(i,:),...
-            'Marker','o','LineStyle','none')
-    end
-    hold off
-    set(gca,'FontSize',14)
-    xlabeltext = ['Potential Energy (' energyunits ')'];
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = ...
-        '\boldmath$\ln(\dot{\epsilon_{pl}} / \dot{\epsilon_{b}}) \newline$';
-    ylabel({ylabeltext,''},'FontSize',18,'interpreter','latex')
-    titletext = 'Log of Strain Rate vs. Potential Energy';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex')       
-   
-    %   Log of Strain Rate vs. Potential Energy
-    figure
-    hold on
-    for i = 1:nDirs
-        % Flatten Data
-        xdata = reshape(PEbin{i}(:,:,2:end),[1,numel(PEbin{i}(:,:,2:end))]);
-        ydata = reshape(log(d2udydt{i}),[1,numel(d2udydt{i})]);
-        % Filter Data
-        xdata = xdata(ydata>SRres);
-        ydata = ydata(ydata>SRres);
-        % Format and Plot
-        plot(xdata,ydata,'color',cmap(i,:),...
-            'Marker','o','LineStyle','none');
-    end
-    hold off
-    set(gca,'FontSize',14)
-    xlabeltext = ['Potential Energy (' energyunits ')'];
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = '\boldmath$\ln(\dot{\epsilon_{pl}}) \newline$';
-    ylabel({ylabeltext,''},'FontSize',18,'interpreter','latex')
-    titletext = 'Log of Strain Rate vs. Potential Energy';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex')       
- 
-    % Plot Average log(strain rate) vs. Potential Energy
-    figure                                                          
-    hold on
-    for i = 1:nDirs
-        plot(pe_mean{i},sr_mean{i},'color',cmap(i,:),...
-            'Marker','o','LineStyle','none');
-    end
-    set(gca,'FontSize',14)
-    xlabeltext = ['Potential Energy (' energyunits ')'];
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = ...
-        '\boldmath$\ln(\dot{\epsilon_{pl}} / \dot{\epsilon_{b}}) \newline$';
-    ylabel({ylabeltext,''},'FontSize',18,'interpreter','latex')
-    titletext = 'Log of Strain Rate vs. Potential Energy';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex') 
-    for i = 1:nDirs
-        errorbar(pe_mean{i},sr_mean{i},sr_dev{i},'LineStyle','none',...
-            'Color',cmap(i,:))
-        h = herrorbar(pe_mean{i},sr_mean{i},pe_dev{i},pe_dev{i},'o');
-        h(1).Color = cmap(i,:);
-        h(2).Color = cmap(i,:);
-    end
-%     for i = 1:nDirs
-%         herrorbar(pe_mean{i},sr_mean{i},pe_dev{i},pe_dev{i},'.')
-%     end
-    hold off
-        
-    %   Band Width vs. Percent Shear Strain
-    figure
-    hold on  
-    for i = 1:nDirs
-        pcnt = length(bandsize{i});
-        plot((1:pcnt)*100,bandsize{i}(1:pcnt),...
-            'color',cmap(i,:),'Marker','o','LineWidth',2)
-    end  
-    hold off
-    set(gca,'FontSize',14)
-    xlabeltext = 'Shear Strain (%)';
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = ['Band Width (' distanceunits ')'];
-    ylabel({ylabeltext,''},'FontSize',18)
-    yl = ylim;
-    xl = xlim;
-    xlim([0 xl(2)])
-    ylim([0 yl(2)])
-    titletext = 'Band Width Evolution';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex')
- 
-    %   Band Width vs. Shear Strain^(0.5)    
-    figure
-    hold on   
-    for i = 1:nDirs
-        pcnt = length(bandsize{i});
-        plot(sqrt(1:pcnt),bandsize{i}(1:pcnt),...
-            'color',cmap(i,:),'Marker','o','LineWidth',2)
-    end  
-    hold off  
-    set(gca,'FontSize',14)
-    xlabeltext = 'Shear Strain^{0.5}';
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = ['Band Width (' distanceunits ')'];
-    ylabel({ylabeltext,''},'FontSize',18)
-    yl = ylim;
-    xl = xlim;
-    xlim([0 xl(2)])
-    ylim([0 yl(2)])
-    titletext = 'Band Width Evolution';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex')
-   
     
-    %   Fractional Coverage vs. Shear Strain^(0.5)
-    figure
-    hold on   
-    pcnt = Points(end);
-    for i = 1:nDirs
-        plot(sqrt(1:pcnt),bandsize{i}(1:pcnt)/Ly,...
-            'color',cmap(i,:),'Marker','o','LineWidth',2)
-    end  
-    hold off  
-    set(gca,'FontSize',14)
-    xlabeltext = 'Shear Strain^{0.5}';
-    xlabel({'',xlabeltext},'FontSize',18)
-    ylabeltext = 'Fractional Coverage [--]';
-    ylabel({ylabeltext,''},'FontSize',18)
-    yl = ylim;
-    xl = xlim;
-    xlim([0 xl(2)])
-    ylim([0 yl(2)])
-    titletext = 'Band Width Evolution';
-    title({titletext,''},'FontSize',20)
-    legend(qrates,'Location','best','interpreter','latex')
+    outconfigs = [1 2 4];
+    outconfigs = [1 2 4];
     
-    switch show_filtered_data_figs
-        case {'yes','YES','Yes','on','ON','On'}            
-            %   Potential Energy & Strain Rate vs. y-Position, Filtered Data
-            legendtext = cell(size(Points));
-            for i = 1:nDirs
-                figure
-                f(1) = subplot(1,2,1);
-                hold on
-                degree = 3;
-                for j = 1:length(Points)          
-                    tmpdata = [d2udydt{i}(:,end-degree+1:end,Points(j)) ...
-                                d2udydt{i}(:,:,Points(j)) ...
-                                d2udydt{i}(:,1:degree,Points(j))];
-                    xdata = smooth(tmpdata,'moving');
-                    xdata = xdata(degree+1:end-degree);
-                    plot(xdata,linspace(0,Ly,nBins),...
-                        'LineWidth',2)
-                    legendtext{j} = [num2str(Points(j)-1) '00-'...
-                        num2str(Points(j)) '00%'];
-                end
-                hold off
-                set(gca,'FontSize',14)
-                xlabeltext = ['Strain Rate (' strainrateunits ')'];
-                xlabel({'',xlabeltext},'FontSize',18)
-                axis tight
-                ylabeltext = ['y-Position (' distanceunits ')'];
-                ylabel({ylabeltext,''},'FontSize',18)
-                legend(legendtext)
+    % Default Plot Format Values
+    legendtext = cell(size(Points));                                        
+    fontsize = 50;
+    linewidth = 10;
+    markersize = 34;
+ 
 
-                f(2) = subplot(1,2,2);
-                hold on
-                for j = 1:length(Points)
-                    tmpdata = [PEbin{i}(:,end-degree+1:end,Points(j)) ...
-                                PEbin{i}(:,:,Points(j)) ...
-                                PEbin{i}(:,1:degree,Points(j)) ];
-                    xdata = smooth(tmpdata,'moving');
-                    xdata = xdata(degree+1:end-degree);
-                    plot(xdata,linspace(0,Ly,nBins),...
-                        'LineWidth',2)
-                end
-                PEshift = min(PEbin{i}(:,:,2)) - max(PEbin{i}(:,:,1));
-                set(f(2),'yticklabel',[]);
-                plot(PEbin{i}(:,:,1)+PEshift,linspace(0,Ly,nBins),...
-                    'k--','LineWidth',2)
-                hold off
-                set(gca,'FontSize',14)
-
-                xlabeltext = ['Potential Energy (' energyunits ')'];
-                xlabel({'',xlabeltext},'FontSize',18)
-                axis tight
-            end    
-    end
+    % Plot Strain Rate, Log Strain Rate, Potential Energy Evolution
+    plotStrainRateLogStrainRatePotentialEnergyEvolution
+    
+    plotStrainRatePotentialEnergyEvolution
+% 
+%     %  Plot Log of Band-Normalized Strain Rate vs. Potential Energy
+    plotALLLogBandNormalizedStrainRatevsPotentialEnergy
+    
+    plotLogBandNormalizedStrainRatevsPotentialEnergy
+% %     % Plot Log of Strain Rate vs. Potential Energy
+%     plotLogStrainRatevsPotentialEnergy
+% % 
+% %     % Plot of Mean Log Norm Strain Rate vs. Potential Energy
+%     plotMeanLogNormStrainRatevsPotentialEnergy
+% % 
+% %     % Plot Band Width vs. Percent Shear Strain
+%     plotBandWidthvsPercentShearStrain
+% %     
+%     % Plot Band Width vs. Shear Strain^(0.5)    
+%     plotBandWidthvsSqrtShearStrain
+    plotALLBandWidthvsSqrtShearStrain
+% %     
+%     % Plot Fractional Coverage vs. Shear Strain^(0.5)
+%     plotFracCoveragevsSqrtShearStrain
+% %     
+%     % Plot Strain Rate in Band vs. PE in Band
+%     plotBandStrainRatevsBandPE
+%     
+%     % Plot Strain Rate in Band vs. Percent Strain
+%     plotBandStrainRatevsPercentStrain
+% 
+% %     % Plot Mean Potential Energy vs. Percent Strain
+% %     plotPotentialEnergyEvolution
+%     
+%     % Plot Log(Band Width) vs. Log(Percent Shear Strain)
+%     plotloglogBandWidthvsShearStrain
+%     
+%     % Plot Filtered Strain Rate, Potential Energy Evolution 
+%     plotFilteredStrainRatePotentialEnergyEvolution
+    
+   
 end
 
 

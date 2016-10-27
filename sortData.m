@@ -1,4 +1,4 @@
-function [Type,Pos,Flg,PE,tdata,bounds] = sortData(SrcDir,SrcName)
+function [Type,Pos,Flg,PE,tdata,bounds,Vel] = sortData(SrcDir,SrcName)
 % Opens files in the provided source directory whos name matches the
 %   source name and stores data in multidimensional matrices corresponding
 %   to position, flags, and potential energy, respectively.
@@ -25,17 +25,39 @@ function [Type,Pos,Flg,PE,tdata,bounds] = sortData(SrcDir,SrcName)
         end
     end
     
+    
+    
 
     % Using source directory and source file names, create a structure
     %   containing all source data.
     FileName = strcat(SrcDir,SrcName);
     DataFiles = dir(FileName);
     nFiles = length(DataFiles);
-    bounds = zeros(3,3,nFiles);
-    tdata = zeros(1,nFiles);
+
+    disp('Before Change');
+    disp(nFiles)
+    % If entire directory is referenced instead of subset...
+    if nFiles > 31 
+        % delete all odd-step elements from structure
+        for i = nFiles:-1:1
+            if mod(i,2) == 0
+                DataFiles(i) = [];
+            end
+        end
+    end
     
+    % Update the number of elements to reflect changes
+    nFiles = length(DataFiles);
+    disp('After Changes')
+    disp(nFiles)
+    bounds = zeros(3,3,nFiles);
+    tdata = zeros(1,nFiles);   
     for i = 1:nFiles
+        
+        % Verify that the file is an even snapshot,
         FileName = DataFiles(i).name;
+
+        
         FullPath = strcat(SrcDir,FileName);
         
         % Gather timestep data, save to tdata array         
@@ -62,23 +84,28 @@ function [Type,Pos,Flg,PE,tdata,bounds] = sortData(SrcDir,SrcName)
         end
         flg_index_head = find(strcmp(colheaders,'ix'));
         flg_index_tail = find(strcmp(colheaders,'iz'));
+        vel_index_head = find(strcmp(colheaders,'vx'));
+        vel_index_tail = find(strcmp(colheaders,'vz'));        
         eng_index = find(strcmp(colheaders,'c_eng'));
         type_index = find(strcmp(colheaders,'type'));
-             
         % Preallocate matrices on the first iteration 
+             
         if i == 1
             Dims = size(FileData.data);
             nAtoms = Dims(1);
             Type = zeros(nAtoms,length(type_index:type_index),nFiles);
             Pos = zeros(nAtoms,length(pos_index_head:pos_index_tail),nFiles);
             Flg = zeros(nAtoms,length(flg_index_head:flg_index_tail),nFiles);
-            PE = zeros(nAtoms,length(eng_index:eng_index),nFiles);         
+            PE = zeros(nAtoms,length(eng_index:eng_index),nFiles);
+            Vel = zeros(nAtoms,length(vel_index_head:vel_index_tail),nFiles);
         end        
         % Populate position, velocity, flag and potential energy matrices
         Pos(:,:,i) = FileData.data(:,pos_index_head:pos_index_tail);
         Flg(:,:,i) = FileData.data(:,flg_index_head:flg_index_tail);
         Type(:,:,i) = FileData.data(:,type_index:type_index);
+        Vel(:,:,i) = FileData.data(:,vel_index_head:vel_index_tail);
         PE(:,:,i) = FileData.data(:,eng_index:eng_index);    
+        
     end
     
     switch enforce_equidistant_configs                                      % Control strict requirement of equidistant
