@@ -3,7 +3,36 @@ opvarcount = 1;
 while opvarcount < numel(varargin)
     
    switch varargin{opvarcount}
-       
+       case {'markermap','mmap'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           markermap = varargin{opvarcount};
+           
+       case {'colormap','cmap'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           cmap = varargin{opvarcount};
+           
+       case {'system_names','systemnames'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           systemnames = varargin{opvarcount};
+           
+       case {'plot_vrms'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           plot_vrms = varargin{opvarcount};
+           
+       case {'is_constant'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           is_constant = varargin{opvarcount};
+           
+       case {'logincrement','loginc'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           loginc = varargin{opvarcount};
+           
        case {'nBins','Nbins','N','numBins','bins','BINS'}
            assert(opvarcount+1<=numel(varargin))
            opvarcount = opvarcount + 1;
@@ -79,6 +108,16 @@ while opvarcount < numel(varargin)
                    periodic_bounds = 'false';
            end
            
+       case {'matchstrain','atstrains','match_strain','at_strain'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           at_strain = varargin{opvarcount};
+           
+       case {'strain_increment','straininc','strainincrement'}
+           assert(opvarcount+1<=numel(varargin))
+           opvarcount = opvarcount + 1;
+           straininc = varargin{opvarcount};
+              
        otherwise
            if ~ischar(varargin{opvarcount})
                errtxt1 = [' ',num2str(varargin{opvarcount})];

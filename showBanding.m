@@ -1,70 +1,10 @@
 function showBanding(SrcDirs,varargin)
-% Function "ShowBanding" calculates atomic shear strain rate for LAMMPS
-% molecular dynamics simulation data obtained using the fix print command.
-%
-% showBanding(SrcDirs,nBins,n_average_points,system,varargin)
-% showBanding({'SrcDir1',...,'SrcDirN'})
-% showBanding({'SrcDir1',...,'SrcDirN'},'ParameterName',ParameterValue)
-%
-% Required Input(s): None
-% Optional Inputs:
-%   {'SrcDir1',...,'SrcDirN'} - absolute path to directory(ies) containing
-%       LAMMPS dump files. Default values is {'.'}, current working
-%       directory.
-%   nBins - number of bins by which all configurations are divided. Default
-%       value is 50.
-%   n_average_points -  number of raw data points for which average and
-%       standard deviation are computed on log(strain rate) vs. potential
-%       energy plots. Default value is 5.
-%   system - the system determines the units, rates, relevant species to
-%       include in averages and other parameters for analysis. Default
-%       value is 'Lancon', a two-dimensional binary, Lennard Jones glass.
-%           Ref. ###
-% Default Output(s):
-%   *** Figure numbers are only for enumeration in the following list and
-%       may vary upon program execution. ***
-%   figure 1 - 
-%   figure 2 -
-%   figure 3 -
-%   figure 4 -
-% Optional Output(s):
-%   figure 1 -
-%   figure 2 -
-%   figure 3 -
+functionHeader
 
 %% Initialization of Data Structures, Defaults and Units
-    
-    path(path,'/Applications/herrorbar');                                   % Include horizontal error bar module
-    path(path,'/Applications/SLMtools/SLMtools/');
-    warning('off','all');                                                   % Suppress all warnings
-    format long
-    
-    fontsize = 34;
-    linewidth = 4;
-    markersize = 34;
-    outconfigs = [1 3 5];
-    
-    % new output based on strain
-    
-    % Defaults
-    if nargin == 0                                                          % Set current working directory as location of
-        SrcDirs = {'.'};                                                    % source files should no directory be given.
-    end
-    nBins = 50;
-    n_average_points = 35;
-    % Defaults, Switches
-    system = 'Lancon';
-    min_strain_rate_res = 'no';                                             % Switch governs minimum resolvable shear rate
-    show_filtered_data_figs = 'no';                                         % Switch governs display of filtered plots 
-    periodic_bounds = 'yes';                                          % Switch 
-    show_data_fit = 'off';
-    flip_data = 'Yes';
-    average_along = 'potentialenergy';
-    verbose_fit = 'off';
-    % Set global color, marker maps for each quench rate
-    cmap = [222,29,42; 164,131,196; 0,148,189]*(1/255);                     
-    markermap = ['o','^','s'];
-    type = 1;
+
+    % Set default parameters
+    setDefaultParameters
     
     % Parse Optional Inputs
     parseOptionalInputParameters
@@ -80,23 +20,12 @@ function showBanding(SrcDirs,varargin)
     % Set System Units, Default Text Values
     setSystemUnitsDefaults
     
-    % Initialize data cells
-    PEbin = cell(nDirs,1);                                                  % bin-averaged potential energies
-    normVelbin = cell(nDirs,1); 
+    % Initialize Data Cells
+    initializeDataCells
     
-    bandsize = cell(nDirs,1);                                               % shear band size, system units
-    bandext = cell(nDirs,1);                                                % indicies of band extents
-    pelog = cell(nDirs,1);                                                  % potential energy from log analysis
-    sdotlog = cell(nDirs,1);                                                % strain rate from log analysiss
-    ux_Bin = cell(nDirs,1);                                                 % bin-averaged displacement in x
-    d2udydt = cell(nDirs,1);                                                % strain rate
-    pe_mean = cell(nDirs,1);                                                % average potential energy, log 
-    sr_mean = cell(nDirs,1);                                                % average strain rate, log plot
-    pe_dev = cell(nDirs,1);                                                 % potential energy standard deviation
-    sr_dev = cell(nDirs,1);                                                 % strain rate standard deviation    
-    dudtBin = cell(nDirs,1);
-    PEband = cell(nDirs,1);
-    SRband = cell(nDirs,1);
+    pe0_mean = zeros(nDirs,1);
+    pe0_dev = zeros(nDirs,1);
+    dbwdt = zeros(nDirs,1);
 
     %% Data acquisition, parsing of each directory
     for i = 1:nDirs      
@@ -106,21 +35,28 @@ function showBanding(SrcDirs,varargin)
             quenchduration{i}, ' ', quenchrateunits, ...
             ', Strain Rate = ',strainrate,' ',strainrateunits];
         shorttitletext = [', Strain Rate = ',strainrate,' ',strainrateunits];
-%         
-%         function [longtitletext] = longtitletext(i)
-%             longtitletext = [', Quench ',quench_type,' = ',...
-%                 quenchduration{i}, ' ', timeunits, ...
-%                 ', Strain Rate = ',strainrate,' ',strainrateunits];
-%         end
         
+        % Determine file extension, store data to arrays
         SrcDir = char(SrcDirs(i));
         [ntextfiles,~] = size(dir([SrcDir,'*.txt']));
         [ndatafiles,~] = size(dir([SrcDir,'*.data']));
         
+        % Appropriate extension corresponds to most abundate files, browse
+        % files and append data to corresponding cells.
         if ntextfiles > ndatafiles
-            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = sortData(SrcDir,'*.txt');
+            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = ...
+                sortData(SrcDir,'*.txt',...
+                'at_strains',at_strain,...
+                'alldata',straininc,...
+                'strainrate',str2double(strainrate),...
+                'timestep',tstep);
         elseif ntextfiles < ndatafiles
-            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = sortData(SrcDir,'*.data');
+            [Type,Pos,Flgs,PE,nsteps,bounds,Vel] = ...
+                sortData(SrcDir,'*.data',...
+                'at_strains',at_strain,...
+                'alldata',straininc,...
+                'strainrate',str2double(strainrate),...
+                'timestep',tstep);
         else
             errortext = 'Unable to determine file extension.';
             error(errortext);
@@ -132,17 +68,15 @@ function showBanding(SrcDirs,varargin)
                 Pos = adjust_for_PBCs(Pos,Flgs,bounds);                     
         end
         
+        % Compute Mean, Deviation of Initial PE
+        pe0_mean(i) = mean(PE(Type(:,:,1)==atomtype,:,1));
+        pe0_dev(i) = std(PE(Type(:,:,1)==atomtype,:,1));
+        
         % Bin Atoms According to Y-Position
         Bins = binData(Pos,nBins,Flgs,bounds);
 
         % Include only Particular Atom Type
-        cType = (Type(:,:,:)==type);
-        
-        % Calculate Per-Atom, Per-Bin Mean Square Velocity
-        vel_sqr = Vel.*Vel; 
-        
-        vel_sqr_norm = sum(vel_sqr,2);        
-        normVelbin{i} = averageBins(Bins,vel_sqr_norm,cType);
+        cType = (Type(:,:,:)==atomtype);
 
         % Plot Mean Square Velocity Profile
         plotMeanSquareVelocityProfile
@@ -176,25 +110,23 @@ function showBanding(SrcDirs,varargin)
         % Approximate Band Extents, Size
         [bandext{i},bandsize{i}] = approx_bandwidth(ux_Bin{i},Ly,...
             'verbosefit',verbose_fit,'showDataFitting',show_data_fit);
-             
-        % Sort band extents
-%         bandext{i} = sort(bandext{i});
-        
+
         % Approximate PE, Strain Rate Inside Shear Band
         for config = 2:size(PEbin{i},3)
             A = bandext{i}(1,config-1);
             B = bandext{i}(2,config-1);
-
-            PE_1 = PEbin{i}(1,bandext{i}(1,config-1):bandext{i}(2,config-1),config);
-            PE_2 = [PEbin{i}(1,1:bandext{i}(1,config-1)-1,config) ...
-                PEbin{i}(1,bandext{i}(2,config-1)+1:end,config)];
+            PE_1 = PEbin{i}(1,A:B,config);
+            PE_2 = [PEbin{i}(1,1:A-1,config) PEbin{i}(1,B+1:end,config)];
             PEband{i}(config-1) = max([mean(PE_1) mean(PE_2)]);
             PEjam{i}(config-1) = min([mean(PE_1) mean(PE_2)]);
-            SR_1 = d2udydt{i}(1,bandext{i}(1,config-1):bandext{i}(2,config-1),config-1);
-            SR_2 = [d2udydt{i}(1,1:bandext{i}(1,config-1)-1,config-1) ...
-                d2udydt{i}(1,bandext{i}(2,config-1)+1:end,config-1)];
+            SR_1 = d2udydt{i}(1,A:B,config-1);
+            SR_2 = [d2udydt{i}(1,1:A-1,config-1) ...
+                        d2udydt{i}(1,B+1:end,config-1)];
             SRband{i}(config-1,:) = max([mean(SR_1) mean(SR_2)]);
         end
+        
+        % Free memory, delete variables
+        clearvars A B PE_1 PE_2 SR_1 SR_2
 
         % Compute log of PE, Strain Rate 
         [pelog{i},sdotlog{i}] = ...
@@ -209,18 +141,16 @@ function showBanding(SrcDirs,varargin)
                 [pe_mean{i},sr_mean{i},pe_dev{i},sr_dev{i}] = ...
             computeAverageValues(pelog{i},sdotlog{i},n_average_points);
         end
-        
 
     end
     
     %% Figures Subsection
     
     % Desired Simulation Snapshots to Plot (in units strain)
-    Points = [2,3,4,6,8];       
-    Points = [2 3 4 5 6];
     Points = [2 4 6 8];
-    
-    if ndatafiles > 31
+    outconfigs = [1 2 4];
+%     
+    if ndatafiles > 11
         % Convert Points from strain values to actual snapshots
         i_Points = ones(size(Points));
         acc_strain = str2num(strainrate)*nsteps*tstep;
@@ -232,41 +162,75 @@ function showBanding(SrcDirs,varargin)
     else
        i_Points = Points; 
     end
-    
-    outconfigs = [1 2 4];
-    outconfigs = [1 2 4];
+ 
     
     % Default Plot Format Values
     legendtext = cell(size(Points));                                        
     fontsize = 50;
     linewidth = 10;
     markersize = 34;
- 
+    
+    % Toggle between figures for constant strain , quench rates
+    switch is_constant
+        
+        case {'strain_rate'}
 
+            
+        case {'quench_rate'}
+
+        
+        % This case represents the overlay of several replicas on a single
+        % figure, and should include error bars.
+        case {'both'}
+
+            %  aggregate data, plot Log of Band-Normalized Strain Rate 
+            %  vs. Potential Energy with error bars.
+            plotALLLogBandNormalizedStrainRatevsPotentialEnergy 
+            
+            % aggregate data, plot band width vs sqrt(shear strain) 
+            % with error bars
+            plotALLBandWidthvsSqrtShearStrain
+        
+    end
+    
+ 
     % Plot Strain Rate, Log Strain Rate, Potential Energy Evolution
     plotStrainRateLogStrainRatePotentialEnergyEvolution
     
-    plotStrainRatePotentialEnergyEvolution
-% 
-%     %  Plot Log of Band-Normalized Strain Rate vs. Potential Energy
-    plotALLLogBandNormalizedStrainRatevsPotentialEnergy
-    
+    % Plot log of band-normalized strain rate vs. Potential Energy
     plotLogBandNormalizedStrainRatevsPotentialEnergy
-% %     % Plot Log of Strain Rate vs. Potential Energy
-%     plotLogStrainRatevsPotentialEnergy
-% % 
-% %     % Plot of Mean Log Norm Strain Rate vs. Potential Energy
+
+    % Plot Log of Strain Rate vs. Potential Energy
+    plotLogStrainRatevsPotentialEnergy
+% % % 
+% % %     % Plot of Mean Log Norm Strain Rate vs. Potential Energy
 %     plotMeanLogNormStrainRatevsPotentialEnergy
-% % 
+% % % 
 % %     % Plot Band Width vs. Percent Shear Strain
 %     plotBandWidthvsPercentShearStrain
 % %     
-%     % Plot Band Width vs. Shear Strain^(0.5)    
-%     plotBandWidthvsSqrtShearStrain
-    plotALLBandWidthvsSqrtShearStrain
+    % Plot Band Width vs. Shear Strain^(0.5)    
+    plotBandWidthvsSqrtShearStrain
 % %     
-%     % Plot Fractional Coverage vs. Shear Strain^(0.5)
-%     plotFracCoveragevsSqrtShearStrain
+    % Plot Fractional Coverage vs. Shear Strain^(0.5)
+    plotFracCoveragevsSqrtShearStrain
+    
+    % Plot Scatter of Band Behavior
+    scatter(pe0_mean,pe0_dev,50,dbwdt,'filled')
+    
+    % Plot Strain Rate vs. PE Band
+    figure
+    strain05 = sqrt(nsteps(2:end)*tstep*str2double(strainrate));
+    hold on
+    for i = 1:nDirs
+       plot(strain05,PEband{i},...
+           'color',cmap(i,:),...
+        'Marker',markermap(i),...
+        'MarkerFaceColor','auto',...
+        'MarkerSize',markersize,...
+        'LineWidth',linewidth)
+    end
+    hold off
 % %     
 %     % Plot Strain Rate in Band vs. PE in Band
 %     plotBandStrainRatevsBandPE

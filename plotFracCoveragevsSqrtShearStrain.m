@@ -1,17 +1,18 @@
-%%   Fractional Coverage vs. Shear Strain^(0.5)
+%%  Plot Fractional Coverage vs. Shear Strain^(0.5)
 
 figure
 hold on   
-pcnt = Points(end);
+
+% Plot all available snapshots
 for i = 1:nDirs
-    plot(sqrt(1:pcnt),bandsize{i}(1:pcnt)/Ly,...
+    plot(sqrt(nsteps(2:end)*tstep*str2num(strainrate)),bandsize{i}/Ly,...
         'color',cmap(i,:),...
         'Marker',markermap(i),...
         'MarkerFaceColor','auto',...
         'MarkerSize',markersize,...
         'LineWidth',linewidth)
 end  
-hold off  
+hold off 
 
 xlabeltext = 'Shear Strain^{0.5}';
 xlabel({'',xlabeltext},'FontSize',fontsize)

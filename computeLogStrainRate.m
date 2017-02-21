@@ -52,8 +52,15 @@ function [PotEng,Shear] = computeLogStrainRate(SR,PE,BndExt,mintol)
             PotEng = [xdata PotEng];
         end
     
+        
     [Shear, Ix] = sort(Shear);                                              % sort shear data in ascending order                      
     PotEng = PotEng(Ix);                                                    % sort potential energy data in same order
+    
+    % Remove all log(strainrate) values >= 0, along with the associated
+    % potential energy values
+    PotEng(Shear>=0) = [];
+    Shear(Shear>=0) = [];
+    
 %     Shear(Shear==Inf) = [];                                                 % purge unused memory in shear array
 %     PotEng(PotEng==Inf) = [];                                               % purge unused memory in potential energy array
     

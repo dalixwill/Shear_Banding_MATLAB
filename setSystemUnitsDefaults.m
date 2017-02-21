@@ -6,7 +6,7 @@ switch lower(system)
         title_name = 'Lancon Glass';
         quench_type = 'Duration';
         qnch_durations = {'    1e4 \tau','    1e5 \tau','    1e6 \tau'};
-        quenchrateunits = '\tau^{-1}';
+        quenchrateunits = '\tau';
         distanceunits = '\sigma';
         energyunits = '\epsilon';
         strainrateunits = '\tau^{-1}';
@@ -23,7 +23,7 @@ switch lower(system)
         title_name = 'Kob-Andersen Glass';
         quench_type = 'Duration';
         qnch_durations = {'    1e3 \tau','    1e4 \tau','    1e5 \tau'};
-        quenchrateunits = '\tau^{-1}';  
+        quenchrateunits = '\tau';  
         distanceunits = '\sigma';
         energyunits = '\epsilon';
         strainrateunits = '\tau^{-1}';

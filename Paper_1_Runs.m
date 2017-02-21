@@ -6,6 +6,25 @@
 
 close all
 
+structure_1 = '~/Desktop/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00002/data/MATLAB/';
+structure_2 = '/Volumes/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00010/data/MATLAB/';
+structure_3 = '/Volumes/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00050/data/MATLAB/';
+
+showBanding({structure_1},...
+    'system','lancon',...
+    'nBins',100,...
+    'span',50,...
+    'averagealong','strainrate',...
+    'quenchduration',{'1e4','1e5','1e6'},...
+    'strainrate','0.00002',...
+    'runnumber','0')
+
+%% 3DLJ (Lancon) - Velocity Profiles 
+% run 0 - Quench Duration = 1e4 t0 - Strain Rate = MULTIPLE 1/t0 
+% Used to obtain velocity profiles at 100%.
+
+close all
+
 structure_1 = '/Volumes/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00002/data/MATLAB/';
 structure_2 = '/Volumes/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00010/data/MATLAB/';
 structure_3 = '/Volumes/HHPC/Research/runs/LJ/Lancon-et-al/run0/shear/t0_1e4/sr_00050/data/MATLAB/';

@@ -1,17 +1,20 @@
 %   Figure - Strain Rate, Log Strain Rate, Potential Energy Evolution
 
+% Desired strain increments on figure
+outstrain = [2 4 6 8];
+
 for i = 1:nDirs
     longtitletext = [', Quench ',quench_type,' = ',...
             quenchduration{i}, ' ', quenchrateunits, ...
-            ', Strain Rate = ',strainrate,' ',strainrateunits];
-        
+            ', Strain Rate = ',strainrate,' ',strainrateunits];      
+    
+    % Plot strain rate vs. bin   
     figure
-
     f(1) = subplot(1,3,1);
     hold on
-    for j = 1:length(Points)
-        
-        plot(d2udydt{i}(:,:,i_Points(j)),linspace(0,Ly,nBins),...
+    for j = 1:length(outstrain)
+        strain_idx = find(at_strain==(outstrain(j)));
+        plot(d2udydt{i}(:,:,strain_idx),linspace(0,Ly,nBins),...
             'LineWidth',linewidth)
     end
     hold off
@@ -23,10 +26,12 @@ for i = 1:nDirs
     ylabel({ylabeltext,''},'FontSize',fontsize)
     set(gca,'FontSize',fontsize)
 
+    % Plot log(strain rate) vs. bin
     f(2) = subplot(1,3,2);
     hold on
-    for j = 1:length(Points)
-        plot(log(d2udydt{i}(:,:,Points(j))),linspace(0,Ly,nBins),...
+    for j = 1:length(outstrain)
+        strain_idx = find(at_strain==(outstrain(j)));
+        plot(log(d2udydt{i}(:,:,strain_idx)),linspace(0,Ly,nBins),...
             'LineWidth',linewidth)
     end
     hold off        
@@ -38,22 +43,19 @@ for i = 1:nDirs
     title({titletext_l1,titletext_l2});
     axis tight
     set(gca,'FontSize',fontsize)
-
+    
+    % Plot PE vs. bin
     f(3) = subplot(1,3,3);
     hold on
-    PEshift = min(PEbin{i}(:,:,2)) - max(PEbin{i}(:,:,1));
-    % DO NOT SHIFT UNLESS YOU PLAN ON PLACING SHIFT INFO IN WRITEUP
-    PEshift = 0;
-    
-    plot(PEbin{i}(:,:,1)+PEshift,linspace(0,Ly,nBins),...
+    plot(PEbin{i}(:,:,1),linspace(0,Ly,nBins),...
         'k--','LineWidth',linewidth)
     legendtext = cell(size(Points));
     legendtext{1} = '    0%';
-    for j = 1:length(Points)
-        plot(PEbin{i}(:,:,Points(j)),linspace(0,Ly,nBins),...
+    for j = 1:length(outstrain)
+        strain_idx = find(at_strain==(outstrain(j)));
+        plot(PEbin{i}(:,:,strain_idx),linspace(0,Ly,nBins),...
             'LineWidth',linewidth)
-        legendtext{j+1} = ['    ', num2str(Points(j)-1) '00-'...
-            num2str(Points(j)) '00%'];
+        legendtext{j+1} = ['    ', num2str(outstrain(j)) '00%'];
     end       
     hold off
     xlabeltext = ['Potential Energy (' energyunits ')'];
@@ -74,12 +76,6 @@ for i = 1:nDirs
     set(f(3),'yticklabel',[]);
     
     % Set Figure Positions
-%     set(f(1),'Position',[0.194,0.11,0.213,0.700],...
-%         'LooseInset',[0,0,0,0]);
-%     set(f(2),'Position',[0.411,0.11,0.213,0.700],...
-%         'LooseInset',[0,0,0,0]);
-%     set(f(3),'Position',[0.628,0.11,0.213,0.700],...
-%         'LooseInset',[0,0,0,0]); 
     leftstart = 0.125;
     leftoffset = 0.23;
     bottomoffset = 0.20;
@@ -91,6 +87,7 @@ for i = 1:nDirs
         'LooseInset',[0,0,0,0]);
     set(f(3),'Position',[leftstart+2*leftoffset,bottomoffset,width,height],...
         'LooseInset',[0,0,0,0]); 
+    
     % Maximize Plot Window
     set(gcf,'WindowStyle','docked');
     

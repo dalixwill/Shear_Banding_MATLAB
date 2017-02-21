@@ -1,3 +1,4 @@
+
 % Plot Average logNORM(strain rate) vs. Potential Energy
 
 figure                                                          

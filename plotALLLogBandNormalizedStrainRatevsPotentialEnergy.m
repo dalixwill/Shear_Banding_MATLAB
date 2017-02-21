@@ -1,60 +1,72 @@
-% Plot - Log of Band-Normalized Strain Rate vs. Potential Energy
-% ALL!
+% ---
+%
+%  Plot - Log of Band-Normalized Strain Rate vs. Potential Energy
+%
+%    This plot aggregates log(norm(SR)) vs. PE data into a master curve.
+%    Should only be used when data represents both constant strain 
+%    and quench rate --> i.e. multiple instantiations of same data. 
+%
+% ---
 
 figure
 hold on
 cmapi = 1;
 
-% allpelog = reshape(pelog{:},1,numel(pelog{:}));
-% allsdotlog = reshape(sdotlog{:},1,numel(sdotlog{:}));
+% Aggregate log(PE), log(SR) data across all directories (runs) 
+% for values of strain >= 200%.
 allpedata = [];
 allsdotdata = [];
 for i = 1:nDirs
-    allpedata = [pelog{i} allpedata];
-    allsdotdata = [sdotlog{i} allsdotdata];
+    i200pct = find(at_strain==2);
+    allpedata = [pelog{i}(i200pct:end) allpedata];
+    allsdotdata = [sdotlog{i}(i200pct:end) allsdotdata];
 end
 
-% Sort data in order of increasing strain rate
-[allsdotdata ix] = sort(allsdotdata);
+% Sort strain rate, PE data in order of increasing strain rate
+[allsdotdata,ix] = sort(allsdotdata);
 allpedata = allpedata(ix);
 
-[allsdotdata,allpedata,allsrdev,allpedev] = ...
-    computeAverageValues(allsdotdata,allpedata,n_average_points);
-% 
-% for i = 1:nDirs
-    plot(allpedata,allsdotdata,...
-        'color',cmap(cmapi,:),...
-        'Marker',markermap(i),...
-        'MarkerSize',markersize,...
-        'MarkerFaceColor','auto',...
-        'LineStyle','none')
-% end
+% Average along fixed strain increments
+ [allpedata,allsdotdata,allpedev,allsrdev] = ...
+     binLogData(allpedata,allsdotdata,loginc);
+
+% Plot resultant data points
+plot(allpedata,allsdotdata,...
+    'color',cmap(cmapi,:),...
+    'Marker',markermap(i),...
+    'MarkerSize',markersize,...
+    'MarkerFaceColor','auto',...
+    'LineStyle','none')
+
+% Set x,y axis text, attributes
 xlabeltext = ['Potential Energy (' energyunits ')'];
 xlabel({'',xlabeltext},'FontSize',fontsize)
 ylabeltext = ...
     '\boldmath$\ln(\dot{\epsilon_{pl}} / \dot{\epsilon_{b}}) \newline$';
-ylabel({ylabeltext,''},'FontSize',fontsize,'interpreter','latex')   
-titletext_l1 = 'Log of Strain Rate vs. Potential Energy';
-titletext_l2 = [title_name, shorttitletext];
-title({titletext_l1,titletext_l2});       
-figlegnd = legend(systemnames,'Location','eastoutside');
-lgndtitle = get(figlegnd,'Title');
-set(lgndtitle,'String',legendtitletext);
-titletext_l1 = 'Velocity Profile Evolution';
+ylabel({ylabeltext,''},'FontSize',fontsize,'interpreter','latex')
+
+% Set title text, attributes
+titletext_l1 = 'Scaled Local Strain Rate vs. Potential Energy';
+titletext_l2 = [title_name, longtitletext];
+title({titletext_l1,titletext_l2});
+
+% Set legend text, attributes
+legendtitletext = ['Quench ',quench_type,' (',quenchrateunits,' )'];
+figlegnd = legend(quenchduration,'Location','eastoutside');
+legendtitle = get(figlegnd,'Title');
+set(legendtitle,'string',legendtitletext)
 legend boxoff
 set(gca,'FontSize',fontsize)
 
+% Plot vertical, horizontal error bars
 errorbar(allpedata,allsdotdata,allsrdev,...
     'LineStyle','none',...
     'Color',cmap(cmapi,:))
 h = herrorbar(allpedata,allsdotdata,allpedev,allpedev,'.');
 h(1).Color = cmap(cmapi,:);
 h(2).Color = cmap(cmapi,:);
-% errorbar(allpedata,allsdotdata,allpedev,'horizontal')
-% h = herrorbar(allpedata,allsdotdata,allpedev,allpedev,'.');
-% h(1).Color = cmap(i,:);
-% h(2).Color = cmap(i,:);
+
 hold off
 
-% Maximize Plot Window
+% Dock, maximize Plot Window
 set(gcf,'WindowStyle','docked');
